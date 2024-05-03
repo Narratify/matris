@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MATRIS</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+    body {
+      text-align: center;
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+      background-color: #242424;
+      color: #0E8157;
+    }
+    #game-container {
+      display: inline-block;
+      border: 2px solid #0E8157;
+      padding: 10px;
+    }
+    #instructions {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h2>MATRIS</h2>
+    <div id="score">Score: 0</div>
+    <pre id="game-screen"></pre>
+  </div>
+  <div id="instructions">
+    ←left→right↓drop↑rot
+  </div>
+
+  <script>
+    const ROWS = 20;
+    const COLS = 10;
+    const SHAPES = [
+      [
+        [1, 1],
+        [1, 1]
+      ],
+      [
+        [1, 1, 1, 1]
+      ],
+      [
+        [1, 1, 0],
+        [0, 1, 1]
+      ],
+      [
+        [0, 1, 1],
+        [1, 1, 0]
+      ],
+      [
+        [1, 0, 0],
+        [1, 1, 1]
+      ],
+      [
+        [0, 0, 1],
+        [1, 1, 1]
+      ],
+      [
+        [0, 1, 0],
+        [1, 1, 1]
+      ]
+    ];
+    const KATAKANA = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾜｦﾝ";
+
+    let grid = [];
+    let currentShape;
+    let currentBlock;
+    let currentX;
+    let currentY;
+    let gameLoop;
+    let score = 0;
+
+    function init() {
+      for (let row = 0; row < ROWS; row++) {
+        grid[row] = [];
+        for (let col = 0; col < COLS; col++) {
+          grid[row][col] = "  ";
+        }
+      }
+      newShape();
+      gameLoop = setInterval(update, 500);
+    }
+
+    function newShape() {
+      const randomIndex = Math.floor(Math.random() * SHAPES.length);
+      currentShape = SHAPES[randomIndex];
+      currentBlock = generateRandomBlock();
+      currentX = Math.floor(COLS / 2) - Math.floor(currentShape[0].length / 2);
+      currentY = 0;
+    }
+
+    function generateRandomBlock() {
+      const char1 = KATAKANA[Math.floor(Math.random() * KATAKANA.length)];
+      const char2 = KATAKANA[Math.floor(Math.random() * KATAKANA.length)];
+      return char1 + char2;
+    }
+
+    function update() {
+      if (canMove(0, 1)) {
+        currentY++;
+      } else {
+        lockShape();
+        const clearedLines = clearLines();
+        score += clearedLines * 10;
+        updateScore();
+        if (currentY === 0) {
+          gameOver();
+        } else {
+          newShape();
+        }
+      }
+      draw();
+    }
+
+    function canMove(offsetX, offsetY, newShape = currentShape) {
+      for (let row = 0; row < newShape.length; row++) {
+        for (let col = 0; col < newShape[row].length; col++) {
+          if (newShape[row][col]) {
+            const newX = currentX + col + offsetX;
+            const newY = currentY + row + offsetY;
+            if (newX < 0 || newX >= COLS || newY >= ROWS || grid[newY][newX] !== "  ") {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    function lockShape() {
+      for (let row = 0; row < currentShape.length; row++) {
+        for (let col = 0; col < currentShape[row].length; col++) {
+          if (currentShape[row][col]) {
+            grid[currentY + row][currentX + col] = currentBlock;
+          }
+        }
+      }
+    }
+
+    function clearLines() {
+      let clearedLines = 0;
+      for (let row = ROWS - 1; row >= 0; row--) {
+        if (grid[row].every(cell => cell !== "  ")) {
+          grid.splice(row, 1);
+          grid.unshift(new Array(COLS).fill("  "));
+          clearedLines++;
+        }
+      }
+      return clearedLines;
+    }
+
+    function gameOver() {
+      clearInterval(gameLoop);
+      alert("It's over");
+    }
+
+    function draw() {
+      const screen = document.getElementById("game-screen");
+      let screenContent = "";
+
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          if (grid[row][col] !== "  ") {
+            screenContent += grid[row][col];
+          } else {
+            let isCurrentShape = false;
+            for (let shapeRow = 0; shapeRow < currentShape.length; shapeRow++) {
+              for (let shapeCol = 0; shapeCol < currentShape[shapeRow].length; shapeCol++) {
+                if (currentShape[shapeRow][shapeCol] && row === currentY + shapeRow && col === currentX + shapeCol) {
+                  screenContent += currentBlock;
+                  isCurrentShape = true;
+                  break;
+                }
+              }
+              if (isCurrentShape) break;
+            }
+            if (!isCurrentShape) {
+              screenContent += "  ";
+            }
+          }
+        }
+        screenContent += "\n";
+      }
+
+      screen.textContent = screenContent;
+    }
+
+    function rotateShape() {
+      const rotatedShape = [];
+      for (let col = 0; col < currentShape[0].length; col++) {
+        rotatedShape[col] = [];
+        for (let row = currentShape.length - 1; row >= 0; row--) {
+          rotatedShape[col].push(currentShape[row][col]);
+        }
+      }
+      if (canMove(0, 0, rotatedShape)) {
+        currentShape = rotatedShape;
+      }
+    }
+
+    function updateScore() {
+      const scoreElement = document.getElementById("score");
+      scoreElement.textContent = "Score: " + score;
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.code === "ArrowLeft" && canMove(-1, 0)) {
+        currentX--;
+      } else if (event.code === "ArrowRight" && canMove(1, 0)) {
+        currentX++;
+      } else if (event.code === "ArrowDown") {
+        while (canMove(0, 1)) {
+          currentY++;
+        }
+      } else if (event.code === "ArrowUp") {
+        rotateShape();
+      }
+      draw();
+    });
+
+    init();
+  </script>
+</body>
+</html>
